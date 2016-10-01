@@ -55,7 +55,7 @@ class ToySequenceData(object):
         self.seqlen=[]
         for i in range(n_samples):
             #Random sequence length
-            len=random.randint(min_seq_len, max_seq_len)
+            len=rando		m.randint(min_seq_len, max_seq_len)
             #Monitor sequenc length for TensorFlow dynamic caculation
             self.seqlen.append(len)
             #Add a random or linear int sequence (50% prob)
