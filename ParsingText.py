@@ -1,30 +1,37 @@
 #encoding:Utf-8
 '''
-next랑 one-hot vector부분을 채울것, unzip code 확인 필요, what the fuck..
-뒤로 갈수록 os.path.isfile을 확인하는 부분에서 Hard IO를 반복해서 접근하기 때문에 느려질수 밖에 없다.
+- next랑 one-hot vector부분을 채울것, unzip code 확인 필요, what the fuck..
+- 뒤로 갈수록 os.path.isfile을 확인하는 부분에서 Hard IO를 반복해서 접근하기 때문에 느려질수 밖에 없다.
 이 부분에 대해서 따로 i값에 대한 관리를 해주는 부분이 필요하다.
 
-그리고 데이터에 대해서 검증을 하는 부분이 필요하다 1. html값으로 받는 경우 2. flicker 또는 해당 하는 값에 대한 에러 표시
-정형화된 데이터 규격을 가지고 있을 가능성이 높으므로 간단한 pattern matching code를 구현하면 된다.
+- 그리고 데이터에 대해서 검증을 하는 부분이 필요하다 1. html값으로 받는 경우 2. flicker 또는 해당 하는 값에 대한 에러 표시
+- 정형화된 데이터 규격을 가지고 있을 가능성이 높으므로 간단한 pattern matching code를 구현하면 된다.
 
-그리고 간단하게 logistic 방식의 Deep learning을 구현하고 테스트 하고 더 많은 양을 확인하는게 좋을 듯 싶다.
-하지만 logistic 한 것에는 variable length problem을 어떻게 구현 해야하는지에 대한 고민이 필요하다.
-wnid 고양이, 개 구별
+- 그리고 간단하게 logistic 방식의 Deep learning을 구현하고 테스트 하고 더 많은 양을 확인하는게 좋을 듯 싶다.
+- 하지만 logistic 한 것에는 variable length problem을 어떻게 구현 해야하는지에 대한 고민이 필요하다.
+
+우선적으로 필요한 것
+1. 이미지의 데이터 셋과 next batch
+2. 이미지를 가지고 classifier를 만들어야 한다
+3. softmax를 이용한다.
 '''
-
 
 import sys, os, tarfile
 import collections, pickle
 import urllib2, requests
 import numpy as np
 import re
+
 from matplotlib.pyplot import imshow
 from PIL import Image
+
 #총 class 갯수인 maxcount 값으로 n개의 클래스에 해당하는 데이터 셋을 만든다.
+#cat : n02121808   domestic cat, house cat, Felis domestics, Felis catus
+#dog : n02084071   dog, domestic dog, Canis familiaris
 
 maxcount=1
-
 imageandwnidurl="http://image-net.org/imagenet_data/urls/imagenet_fall11_urls.tgz"
+
 #file 이름이 뭘로 저장되나요?? 다시 맵핑 시켜서 파일이름을 적어주나요?
 wnidurl="http://image-net.org/archive/gloss.txt"
 Datasets = collections.namedtuple('Datasets', ['train'])
@@ -38,7 +45,6 @@ def download_web_file(url, name='None'):
     if os.path.isfile(name):
         print "%s is already existed" %name
         return name
-
     print "Downloading %s" % name
 
     response = requests.get(url, stream=True)
@@ -57,7 +63,6 @@ def download_web_file(url, name='None'):
     return name
 
 #예외 처리가 필요하다. url이 존재하지 않을 경우? 내가 원하는 파일인지 아닌지 확인은 어떻게 할까? file이 존재한다면?
-
 def tgzfile_extract(name):
     print 'extract the %s file' %name
     tar=tarfile.open(name, 'r:gz')
@@ -69,7 +74,6 @@ def download_image_by_url(url, name):
     opener = urllib2.build_opener()
     urllib2.install_opener(opener)
     i=0
-
 
     modifiedname=name+'_'+str(i)+'.jpg'
 
@@ -83,7 +87,6 @@ def download_image_by_url(url, name):
         except:
             print 'url is not exist'
     return modifiedname
-
 
 #Dictionary에 wnid의 개수를 세고 그 갯수를 반환한다
 def addToDic(dic, name, count):
@@ -103,6 +106,7 @@ class DataSet:
         self._images=images
         self._labels=labels
         self._size=size
+        self.batch_id=0
 
     @property
     def images(self):
@@ -114,17 +118,22 @@ class DataSet:
     def size(self):
         return self._size
 
-    def next_batch(self):
-        print 'next batch'
-
-    def sum(self, a, b):
-        result=a+b
-        print("%s님 %s+%s=%s입니다" %(self.name, a, b, result))
+    def next_batch(self, batch_list_size):
+        """ 데이터셋 속에서 원하는 사이즈의 data크기를 반환한다. 데이터셋을 다 사용하면 처음부터 다시 회전한다."""
+        if self.batch_id == len(self._images):
+            self.batch_id = 0
+        batch_images = (self.images[self.batch_id:min(self.batch_id +
+                                                  batch_list_size, len(self._images))])
+        batch_labels = (self.labels[self.batch_id:min(self.batch_id +
+                                                      batch_list_size, len(self._images))])
+        batch_size = (self.size[self.batch_id:min(self.batch_id +
+                                                      batch_list_size, len(self._images))])
+        self.batch_id = min(self.batch_id + batch_list_size, len(self._images))
+        return batch_images, batch_labels, batch_size
 
 def save_object(obj, filename):
     with open(filename, 'wb') as output:
         pickle.dump(obj, output, pickle.HIGHEST_PROTOCOL)
-
 
 def read_data_sets():
     if os.path.isfile('imagenet.pkl'):
@@ -151,42 +160,44 @@ def read_data_sets():
         dic.clear()
 
         for line in file('fall11_urls.txt'):
+
             match = line.split('\t')
-
             name = re.match(r"(.*)_.*", match[0]).group(1)
-            count = addToDic(dic, name, count)
-            if (count == maxcount + 1):
-                break;
-            name=download_image_by_url(match[1], name)
+            #해당하는 n~을 찾기위해서 걸리는 시간을 단축 하는게 필요하다 binary search개념이 들어가면 좋을듯 하다. line을 뛰엄넘는 코드가 필요하다
+            if(name=='n02121808' or name=='n02084071' and dataSetSize<20):
+                count = addToDic(dic, name, count)
+                if (count == maxcount + 1):
+                    break;
+                name=download_image_by_url(match[1], name)
 
+                print 'download the imagfile'+name
+                try:
+                    img = Image.open(name)
+                    #이미지의 모드를 확인하고 jpeg형태가 아니면 이미지를 삭제한다.
+                    #쓰레드를 이용해서 다운로드와 기타 행동에 대한 속도를 올릴 수 있다
+                    #하지만 이미지가 각 이미지 사이트에서 오류라고 보낸 경우에는 걸러지지 않는다.
 
+                    print img.mode
 
-            print 'download the imagfile'+name
-            try:
-               img = Image.open(name)
-               #이미지의 모드를 확인하고 jpeg형태가 아니면 이미지를 삭제한다.
-               #쓰레드를 이용해서 다운로드와 기타 행동에 대한 속도를 올릴 수 있다
-               #하지만 이미지가 각 이미지 사이트에서 오류라고 보낸 경우에는 걸러지지 않는다.
+                    data=np.asarray(img.getdata())
 
-               print img.mode
+                    images.append(data)
+                    labels.append(count)  # one-hot vector로 변경해야함
+                    size.append(img.size)
+                    dataSetSize += 1
+                    print 'count :', str(count) + '개'
 
-               data=np.asarray(img.getdata())
-
-               images.append(data)
-               labels.append(count)  # one-hot vector로 변경해야함
-               size.append(img.size)
-               dataSetSize += 1
-               print 'count :', str(count) + '개'
-
-            except:
-                print 'it is not image file'
-
+                except:
+                    print 'it is not image file'
 
         train=DataSet(images, labels, size)
         save_object(train, 'imagenet.pkl')
     return Datasets(train=train)
 
 datasets=read_data_sets()
+batch_images, batch_labels, batch_size=datasets.train.next_batch(10)
+
+print batch_size[0], batch_size[1], batch_size[2], len(batch_size)
 
 
 #datasets의 train의 image, label, size 직접 접근 하는 코드
