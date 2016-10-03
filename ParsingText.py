@@ -194,71 +194,75 @@ def read_data_sets():
         save_object(train, 'imagenet.pkl')
     return Datasets(train=train)
 
-datasets=read_data_sets()
-batch_images, batch_labels, batch_size=datasets.train.next_batch(10)
+def main(_):
+    datasets=read_data_sets()
+    batch_images, batch_labels, batch_size=datasets.train.next_batch(10)
 
-print batch_size[0], batch_size[1], batch_size[2], len(batch_size)
-
-
-#datasets의 train의 image, label, size 직접 접근 하는 코드
-#print datasets.train.images[0]
-#print datasets.train.labels[0]
-#print datasets.train.size[0]
-
-exit(0)
+    print batch_size[0], batch_size[1], batch_size[2], len(batch_size)
 
 
-#tarfile.open("imagenet_fall11_urls.tgz").extract()
+    #datasets의 train의 image, label, size 직접 접근 하는 코드
+    #print datasets.train.images[0]
+    #print datasets.train.labels[0]
+    #print datasets.train.size[0]
 
-obj=""
-k=5 #얻어올 갯수
-n=0
-DataSets=[]
-
-for line in file('fall11_urls.txt'):
-    #Checkig for the .o file
-    match=line.split('\t')
-    #print match[0]
-    #print match[1]
-
-    DataSets.append(match)
-    print DataSets[n][0]
-    print DataSets[n][1]
-    if(k==n):
-        break;
-    n+=1
-
-#image를 웹에서 받아와서 바로 메모리로 올리는 코드
-response=urllib2.urlopen(DataSets[0][1])
-img_bytes=response.read()
-#print img_bytes
-name=download_web_images(DataSets[0][1], DataSets[0][0])
-
-img=Image.open(name)
-
-#image 속의 raw data
-#image 속의 raw data와 header를 분리하여  x,y와 wnid를 추출하여야 한다
-
-print img.format, img.size, img.mode
-#The format attribue identifies the source of an image.
-#If the image was not read from a file, it is et to None.
-#The size attribute is a 2-tuple containing widht and height(in pixels).
-#The mode attribue defines the nubmer and names of the bands
-#in the image, and also the pixel type and depth
-#Common modes are L(luminance) for greyscale images,
-#"RGB" for true colour images, adn "CMYK" for pre-press images.
-
-img.show()
-
-pixels=np.array(img.getdata())
-print pixels
-
-#wnid를 key를 1000개를 받아서 딕셔너리를 만든다.
-#value가 되는 var값이 one-hot vector의 값이 된다.
+    exit(0)
 
 
+    #tarfile.open("imagenet_fall11_urls.tgz").extract()
 
-# x, label, data, -> data의 경우 정상적인 데이터인지 확인하는 사전처리가 필요하다.
+    obj=""
+    k=5 #얻어올 갯수
+    n=0
+    DataSets=[]
 
-# 이 데이터들을 가지고 데이터 셋을 만들어야 한다.
-# 그러려면 tensorflwo mnist의 데이터 셋에 대해서 공부를 해야한다.(class, one_hot vector)
+    for line in file('fall11_urls.txt'):
+        #Checkig for the .o file
+        match=line.split('\t')
+        #print match[0]
+        #print match[1]
+    
+        DataSets.append(match)
+        print DataSets[n][0]
+        print DataSets[n][1]
+        if(k==n):
+            break;
+        n+=1
+    
+    #image를 웹에서 받아와서 바로 메모리로 올리는 코드
+    response=urllib2.urlopen(DataSets[0][1])
+    img_bytes=response.read()
+    #print img_bytes
+    name=download_web_images(DataSets[0][1], DataSets[0][0])
+    
+    img=Image.open(name)
+    
+    #image 속의 raw data
+    #image 속의 raw data와 header를 분리하여  x,y와 wnid를 추출하여야 한다
+    
+    print img.format, img.size, img.mode
+    #The format attribue identifies the source of an image.
+    #If the image was not read from a file, it is et to None.
+    #The size attribute is a 2-tuple containing widht and height(in pixels).
+    #The mode attribue defines the nubmer and names of the bands
+    #in the image, and also the pixel type and depth
+    #Common modes are L(luminance) for greyscale images,
+    #"RGB" for true colour images, adn "CMYK" for pre-press images.
+    
+    img.show()
+    
+    pixels=np.array(img.getdata())
+    print pixels
+    
+    #wnid를 key를 1000개를 받아서 딕셔너리를 만든다.
+    #value가 되는 var값이 one-hot vector의 값이 된다.
+    
+    
+    
+    # x, label, data, -> data의 경우 정상적인 데이터인지 확인하는 사전처리가 필요하다.
+    
+    # 이 데이터들을 가지고 데이터 셋을 만들어야 한다.
+    # 그러려면 tensorflwo mnist의 데이터 셋에 대해서 공부를 해야한다.(class, one_hot vector)
+
+if __name__ == "main":
+    main()
